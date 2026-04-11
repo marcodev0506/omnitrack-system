@@ -1,56 +1,171 @@
 import React, { useEffect, useState } from 'react';
 import { apiNode } from './api';
-import { Truck, Users, MapPin } from 'lucide-react';
+import { io } from 'socket.io-client';
+import { Truck, Users, MapPin, BrainCircuit, Activity, Database } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+
+// --- CONFIGURACIÓN DE ICONOS DE LEAFLET ---
+// (Soluciona el problema de que no se cargan los marcadores en React)
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+    iconUrl: markerIcon,
+    shadowUrl: markerShadow,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// --- CONEXIÓN SOCKET.IO ---
+const socket = io('http://localhost:3001');
 
 function App() {
-  const [users, setUsers] = useState([]);
+  // Estados para los datos de los 3 Backends
+  const [users, setUsers] = useState([]); // Viene de Laravel (vía Node)
+  const [position, setPosition] = useState([10.4806, -66.9036]); // Tiempo real de Node
+  const [analytics, setAnalytics] = useState(null); // Viene de Django
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
 
-  // Pedimos los usuarios a Node.js (que los saca de la DB que maneja Laravel)
   useEffect(() => {
+    // 1. Carga inicial de usuarios (Consumiendo Node -> DB)
     apiNode.get('/test-db')
       .then(res => setUsers(res.data.tablas_encontradas))
-      .catch(err => console.error("Error conectando con Node:", err));
+      .catch(err => console.error("Error cargando usuarios:", err));
+
+    // 2. Escuchar coordenadas en tiempo real (WebSockets de Node)
+    socket.on('driver_position', (data) => {
+      setPosition([data.lat, data.lng]);
+    });
+
+    return () => socket.off('driver_position');
   }, []);
 
+  // 3. Función para consultar a Django (Analítica Pesada)
+  const fetchDjangoAnalytics = async () => {
+    setLoadingAnalytics(true);
+    try {
+      const response = await fetch('http://localhost:8001/api/analytics/');
+      const data = await response.json();
+      setAnalytics(data);
+    } catch (error) {
+      console.error("Error consultando Django:", error);
+    } finally {
+      setLoadingAnalytics(false);
+    }
+  };
+
   return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif', backgroundColor: '#f4f4f9', minHeight: '100vh' }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '30px' }}>
-        <Truck size={32} color="#2563eb" />
-        <h1 style={{ color: '#1e293b' }}>OmniTrack System</h1>
+    <div style={styles.container}>
+      {/* HEADER */}
+      <header style={styles.header}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Truck size={32} color="#2563eb" />
+          <h1 style={styles.title}>OmniTrack <span style={styles.badge}>System Pro</span></h1>
+        </div>
+        <div style={styles.statusGroup}>
+          <div style={styles.statusItem}><Database size={16} /> Laravel Online</div>
+          <div style={styles.statusItem}><Activity size={16} /> Node.js Live</div>
+          <div style={styles.statusItem}><BrainCircuit size={16} /> Django Ready</div>
+        </div>
       </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-        {/* Card de Usuarios */}
-        <div style={{ background: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
-            <Users size={20} />
-            <span style={{ fontWeight: 'bold' }}>Usuarios en Sistema</span>
+      <main style={styles.mainGrid}>
+        
+        {/* COLUMNA IZQUIERDA: EL MAPA EN TIEMPO REAL */}
+        <section style={styles.mapSection}>
+          <div style={styles.cardHeader}>
+            <MapPin size={20} color="#ef4444" />
+            <h2 style={styles.cardTitle}>Rastreo de Unidades (Caracas)</h2>
           </div>
-          <h2 style={{ fontSize: '2rem', margin: '10px 0' }}>{users.length}</h2>
-          <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Sincronizado vía Node.js</p>
-        </div>
-
-        {/* Card de Mapa (Simulado por ahora) */}
-        <div style={{ background: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
-            <MapPin size={20} />
-            <span style={{ fontWeight: 'bold' }}>Estado del GPS</span>
+          <div style={styles.mapWrapper}>
+            <MapContainer center={position} zoom={15} style={{ height: '100%', width: '100%' }}>
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; OpenStreetMap contributors'
+              />
+              <Marker position={position}>
+                <Popup>
+                  <strong>Unidad Activa</strong><br />
+                  Chofer: {users[0]?.name || 'Registrando...'}
+                </Popup>
+              </Marker>
+            </MapContainer>
           </div>
-          <h2 style={{ fontSize: '1.2rem', margin: '10px 0', color: '#22c55e' }}>Online</h2>
-          <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Conexión WebSocket lista</p>
-        </div>
-      </div>
+        </section>
 
-      <div style={{ marginTop: '30px', background: 'white', padding: '20px', borderRadius: '10px' }}>
-        <h3>Lista de Personal (Desde DB Compartida)</h3>
-        <ul>
-          {users.map(user => (
-            <li key={user.id}>{user.name} - <small>{user.email}</small></li>
-          ))}
-        </ul>
-      </div>
+        {/* COLUMNA DERECHA: ESTADÍSTICAS Y ACCIONES */}
+        <aside style={styles.sidebar}>
+          
+          {/* Card Usuarios */}
+          <div style={styles.card}>
+            <div style={styles.cardHeader}>
+              <Users size={20} color="#64748b" />
+              <h2 style={styles.cardTitle}>Personal Registrado</h2>
+            </div>
+            <p style={styles.statsNumber}>{users.length}</p>
+            <ul style={styles.userList}>
+              {users.map(u => (
+                <li key={u.id} style={styles.userItem}>
+                  {u.name} <span style={styles.userEmail}>{u.email}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Card Django Analytics */}
+          <div style={{ ...styles.card, borderTop: '4px solid #f59e0b' }}>
+            <div style={styles.cardHeader}>
+              <BrainCircuit size={20} color="#f59e0b" />
+              <h2 style={styles.cardTitle}>Inteligencia Logística</h2>
+            </div>
+            <button 
+              onClick={fetchDjangoAnalytics} 
+              style={styles.button}
+              disabled={loadingAnalytics}
+            >
+              {loadingAnalytics ? 'Analizando...' : 'Ejecutar Reporte Django'}
+            </button>
+
+            {analytics && (
+              <div style={styles.analyticsBox}>
+                <p><strong>Estado:</strong> {analytics.status}</p>
+                <p><strong>Eficiencia:</strong> {analytics.optimizacion_ruta}</p>
+                <p style={{ color: '#d97706', marginTop: '5px' }}>
+                   💡 {analytics.recomendacion}
+                </p>
+              </div>
+            )}
+          </div>
+
+        </aside>
+      </main>
     </div>
   );
 }
+
+// --- ESTILOS (CSS-in-JS) ---
+const styles = {
+  container: { padding: '20px', backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: 'Inter, system-ui, sans-serif' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', backgroundColor: '#fff', padding: '15px 25px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' },
+  title: { fontSize: '24px', color: '#1e293b', margin: 0 },
+  badge: { fontSize: '12px', backgroundColor: '#dbeafe', color: '#2563eb', padding: '4px 8px', borderRadius: '6px', verticalAlign: 'middle' },
+  statusGroup: { display: 'flex', gap: '15px' },
+  statusItem: { fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px', color: '#64748b' },
+  mainGrid: { display: 'grid', gridTemplateColumns: '1fr 350px', gap: '20px' },
+  mapSection: { backgroundColor: '#fff', padding: '15px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' },
+  mapWrapper: { height: '550px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0' },
+  sidebar: { display: 'flex', flexDirection: 'column', gap: '20px' },
+  card: { backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' },
+  cardHeader: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' },
+  cardTitle: { fontSize: '16px', color: '#475569', margin: 0 },
+  statsNumber: { fontSize: '32px', fontWeight: 'bold', color: '#1e293b', margin: '0 0 10px 0' },
+  userList: { padding: 0, margin: 0, listStyle: 'none' },
+  userItem: { fontSize: '13px', padding: '8px 0', borderBottom: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column' },
+  userEmail: { fontSize: '11px', color: '#94a3b8' },
+  button: { width: '100%', padding: '10px', backgroundColor: '#1e293b', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', transition: '0.2s' },
+  analyticsBox: { marginTop: '15px', padding: '12px', backgroundColor: '#fffbeb', borderRadius: '8px', border: '1px solid #fef3c7', fontSize: '13px' }
+};
 
 export default App;
