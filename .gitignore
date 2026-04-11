@@ -1,8 +1,25 @@
-# Editores y SO
+# Dependencias de Node.js y React
+**/node_modules/
+**/dist/
+**/build/
+
+# Dependencias de Laravel (PHP)
+**/vendor/
+backend-laravel/.env
+backend-laravel/storage/*.key
+backend-laravel/public/storage
+backend-laravel/public/hot
+backend-laravel/public/storage
+
+# Dependencias de Python (Django)
+**/__pycache__/
+**/*.py[cod]
+**/venv/
+**/env/
+
+# Archivos del sistema y editores
 .vscode/
 .idea/
 .DS_Store
-*.swp
-
-# Variables de entorno globales (si las usas en la raíz)
+Thumbs.db
 .env
