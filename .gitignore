@@ -1,0 +1,8 @@
+# Editores y SO
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Variables de entorno globales (si las usas en la raíz)
+.env

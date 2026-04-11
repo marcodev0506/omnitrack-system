@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  # Base de datos compartida
+  postgres:
+    image: postgres:15-alpine
+    container_name: omnitrack_db
+    restart: always
+    environment:
+      POSTGRES_DB: omnitrack
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: secretpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # Sistema de mensajería (para comunicar Laravel con Node)
+  redis:
+    image: redis:alpine
+    container_name: omnitrack_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:
