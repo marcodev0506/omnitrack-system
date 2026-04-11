@@ -1,121 +1,56 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React, { useEffect, useState } from 'react';
+import { apiNode } from './api';
+import { Truck, Users, MapPin } from 'lucide-react';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [users, setUsers] = useState([]);
+
+  // Pedimos los usuarios a Node.js (que los saca de la DB que maneja Laravel)
+  useEffect(() => {
+    apiNode.get('/test-db')
+      .then(res => setUsers(res.data.tablas_encontradas))
+      .catch(err => console.error("Error conectando con Node:", err));
+  }, []);
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div style={{ padding: '20px', fontFamily: 'sans-serif', backgroundColor: '#f4f4f9', minHeight: '100vh' }}>
+      <header style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '30px' }}>
+        <Truck size={32} color="#2563eb" />
+        <h1 style={{ color: '#1e293b' }}>OmniTrack System</h1>
+      </header>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+        {/* Card de Usuarios */}
+        <div style={{ background: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
+            <Users size={20} />
+            <span style={{ fontWeight: 'bold' }}>Usuarios en Sistema</span>
+          </div>
+          <h2 style={{ fontSize: '2rem', margin: '10px 0' }}>{users.length}</h2>
+          <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Sincronizado vía Node.js</p>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        {/* Card de Mapa (Simulado por ahora) */}
+        <div style={{ background: 'white', padding: '20px', borderRadius: '10px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b' }}>
+            <MapPin size={20} />
+            <span style={{ fontWeight: 'bold' }}>Estado del GPS</span>
+          </div>
+          <h2 style={{ fontSize: '1.2rem', margin: '10px 0', color: '#22c55e' }}>Online</h2>
+          <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Conexión WebSocket lista</p>
+        </div>
+      </div>
+
+      <div style={{ marginTop: '30px', background: 'white', padding: '20px', borderRadius: '10px' }}>
+        <h3>Lista de Personal (Desde DB Compartida)</h3>
+        <ul>
+          {users.map(user => (
+            <li key={user.id}>{user.name} - <small>{user.email}</small></li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
 }
 
-export default App
+export default App;
