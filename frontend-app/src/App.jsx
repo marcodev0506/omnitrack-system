@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { apiNode } from './api';
 import { io } from 'socket.io-client';
 import { Truck, Users, MapPin, BrainCircuit, Activity, Database } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup,Polyline } from 'react-leaflet';
 import L from 'leaflet';
 
 // --- CONFIGURACIÓN DE ICONOS DE LEAFLET ---
@@ -27,20 +27,33 @@ function App() {
   const [position, setPosition] = useState([10.4806, -66.9036]); // Tiempo real de Node
   const [analytics, setAnalytics] = useState(null); // Viene de Django
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
-
-  useEffect(() => {
-    // 1. Carga inicial de usuarios (Consumiendo Node -> DB)
+  const [routeHistory, setRouteHistory] = useState([]);
+useEffect(() => {
+    // --- NUEVO: Traer la lista de usuarios para el contador ---
     apiNode.get('/test-db')
-      .then(res => setUsers(res.data.tablas_encontradas))
-      .catch(err => console.error("Error cargando usuarios:", err));
+        .then(res => {
+            // Guardamos los usuarios que vienen de PostgreSQL
+            if (res.data.success) {
+                setUsers(res.data.tablas_encontradas);
+            }
+        })
+        .catch(err => console.error("Error cargando usuarios:", err));
 
-    // 2. Escuchar coordenadas en tiempo real (WebSockets de Node)
+    // --- Historial inicial (Lo que ya tenías) ---
+    apiNode.get('/history/1').then(res => {
+        const coords = res.data.map(loc => [parseFloat(loc.lat), parseFloat(loc.lng)]);
+        setRouteHistory(coords);
+    });
+
+    // --- Socket en tiempo real (Lo que ya tenías) ---
     socket.on('driver_position', (data) => {
-      setPosition([data.lat, data.lng]);
+        const newPos = [data.lat, data.lng];
+        setPosition(newPos);
+        setRouteHistory(prev => [...prev, newPos]); 
     });
 
     return () => socket.off('driver_position');
-  }, []);
+}, []);
 
   // 3. Función para consultar a Django (Analítica Pesada)
   const fetchDjangoAnalytics = async () => {
@@ -85,6 +98,7 @@ function App() {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; OpenStreetMap contributors'
               />
+              <Polyline positions={routeHistory} color="blue" weight={3} opacity={0.6} />
               <Marker position={position}>
                 <Popup>
                   <strong>Unidad Activa</strong><br />

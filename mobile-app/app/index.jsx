@@ -1,20 +1,38 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform,Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Truck } from 'lucide-react-native'; // Usaremos iconos para que se vea Pro
+import { Truck } from 'lucide-react-native'; 
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const router = useRouter();
 
-  const handleLogin = () => {
-    // Por ahora, validación simple para probar la navegación
-    // Luego conectaremos esto con Laravel Sanctum
-    if (email.length > 0 && password.length > 0) {
-      router.replace('/tracking'); 
+const handleLogin = async () => {
+  try {
+    const response = await fetch("http://192.168.0.102:8000/api/login-mobile", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email,
+        password: password,
+        device_name: 'Samsung de Marco', // O cualquier nombre de dispositivo
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log("Token recibido:", data.token);
+      // Aquí podrías guardar el token en SecureStore para que no tenga que loguearse siempre
+      router.replace('/tracking');
+    } else {
+      Alert.alert("Error", data.message || "No se pudo iniciar sesión");
     }
-  };
+  } catch (error) {
+    Alert.alert("Error de conexión", "Asegúrate de que Laravel esté corriendo");
+  }
+};
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>

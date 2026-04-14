@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import { io } from 'socket.io-client';
 
 // RECUERDA: Cambia la IP por la de tu PC (ipconfig)
-const socket = io("http://192.168.0.106:3001"); 
+const socket = io("http://192.168.0.102:3001"); 
 
 export default function Tracking() {
   const [isTracking, setIsTracking] = useState(false);
@@ -24,10 +24,13 @@ export default function Tracking() {
       subscription = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, distanceInterval: 5 },
         (loc) => {
-          const coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
-          setLocation(coords);
-          // Enviamos la ubicación REAL a Node.js
-          socket.emit('driver_movement', coords); 
+          // app/tracking.jsx
+const coords = { 
+    lat: loc.coords.latitude, 
+    lng: loc.coords.longitude,
+    driver_id: global.userId || 1 
+  };
+  socket.emit('driver_movement', coords);
         }
       );
     };
