@@ -47,15 +47,17 @@ setInterval(() => {
     io.emit('driver_position', { lat, lng });
 }, 1000);
 
-// Escuchamos cuando alguien se conecta al Socket
 io.on('connection', (socket) => {
-    console.log('✅ Un cliente se ha conectado al WebSocket (ID: ' + socket.id + ')');
-    
-    socket.on('disconnect', () => {
-        console.log('❌ Cliente desconectado');
+    console.log('📱 App Móvil Conectada');
+
+    // Escuchar el movimiento REAL del celular
+    socket.on('driver_movement', (data) => {
+        console.log(`📍 GPS Real: ${data.lat}, ${data.lng}`);
+        
+        // Re-transmitir a React para que el mapa se mueva
+        io.emit('driver_position', data);
     });
 });
-
 // 6. RUTAS DE LA API (HTTP)
 
 // Ruta base
