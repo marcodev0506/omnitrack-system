@@ -21,18 +21,26 @@ export default function Tracking() {
         return;
       }
 
-      subscription = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.High, distanceInterval: 5 },
-        (loc) => {
-          // app/tracking.jsx
-const coords = { 
-    lat: loc.coords.latitude, 
-    lng: loc.coords.longitude,
-    driver_id: global.userId || 1 
-  };
-  socket.emit('driver_movement', coords);
+    // Dentro de watchPositionAsync en app/tracking.jsx
+    subscription = await Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.High, distanceInterval: 5 },
+      (loc) => {
+        // 1. Verificamos qué ID estamos mandando
+        console.log("Enviando posición del usuario:", global.userId);
+
+        const coords = { 
+          lat: loc.coords.latitude, 
+          lng: loc.coords.longitude,
+          driver_id: global.userId 
+        };
+
+        if (coords.driver_id) {
+            socket.emit('driver_movement', coords); 
+        } else {
+            console.error(" ERROR: No hay ID de usuario definido");
         }
-      );
+      }
+    );
     };
 
     if (isTracking) {

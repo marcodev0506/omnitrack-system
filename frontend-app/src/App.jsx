@@ -54,7 +54,14 @@ useEffect(() => {
 
     return () => socket.off('driver_position');
 }, []);
-
+  const checkAnalytics = async () => {
+    try {
+        const res = await axios.get('http://127.0.0.1:8001/api/analytics/speed/1/');
+        alert(`Análisis de IA: \nEstado: ${res.data.status} \nVelocidad: ${res.data.speed_kph} km/h`);
+    } catch (err) {
+        console.error("Django no responde");
+    }
+};
   // 3. Función para consultar a Django (Analítica Pesada)
   const fetchDjangoAnalytics = async () => {
     setLoadingAnalytics(true);

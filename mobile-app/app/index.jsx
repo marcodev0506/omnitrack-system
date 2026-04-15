@@ -23,10 +23,11 @@ const handleLogin = async () => {
     const data = await response.json();
 
     if (response.ok) {
-      console.log("Token recibido:", data.token);
-      // Aquí podrías guardar el token en SecureStore para que no tenga que loguearse siempre
+      console.log("✅ Login exitoso. ID de usuario:", data.user.id); // Revisa esto en tu terminal
+      global.userId = data.user.id; 
       router.replace('/tracking');
-    } else {
+    }
+     else {
       Alert.alert("Error", data.message || "No se pudo iniciar sesión");
     }
   } catch (error) {
