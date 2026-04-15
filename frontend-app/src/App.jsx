@@ -3,6 +3,7 @@ import { apiNode } from './api';
 import { io } from 'socket.io-client';
 import { Truck, Users, MapPin, BrainCircuit, Activity, Database } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup,Polyline } from 'react-leaflet';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import L from 'leaflet';
 
 // --- CONFIGURACIÓN DE ICONOS DE LEAFLET ---
