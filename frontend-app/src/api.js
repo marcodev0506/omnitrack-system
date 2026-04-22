@@ -7,5 +7,5 @@ export const apiLaravel = axios.create({
 
 // Instancia para hablar con Node.js (Puerto 3001)
 export const apiNode = axios.create({
-    baseURL: 'http://192.168.0.102:3001',
+    baseURL: 'http://192.168.0.101:3001',
 });

@@ -121,6 +121,7 @@ app.get('/history/:userId', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+// Este proceso corre "en la sombra" cada 30 segundos
 setInterval(async () => {
     console.log("🔄 Iniciando volcado masivo de Redis a PostgreSQL...");
     
@@ -143,7 +144,7 @@ setInterval(async () => {
         }
         console.log(`✅ Sincronizados ${keys.length} conductores.`);
     } catch (err) {
-        console.error(" Error en el volcado masivo:", err);
+        console.error("❌ Error en el volcado masivo:", err);
     }
 }, 30000); // 30 segundos
 
