@@ -1,32 +1,42 @@
 import pandas as pd
+from sklearn.linear_model import LinearRegression
+from django.db import connection
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
-import datetime
 
-class ETAPredictor:
-    def __init__(self):
-        self.model = RandomForestRegressor(n_estimators=100)
-        self._train_dummy_model()
+def train_eta_model(user_id):
+    # 1. Extraemos el historial real de la DB
+    query = """
+        SELECT lat, lng, created_at 
+        FROM locations 
+        WHERE user_id = %s 
+        ORDER BY created_at ASC
+    """
+    df = pd.read_sql(query, connection, params=[user_id])
 
-    def _train_dummy_model(self):
-        """Entrena el modelo con datos simulados de tráfico en Caracas"""
-        # Datos: [Distancia (km), Hora (0-23)] -> Tiempo (minutos)
-        # Ejemplo: 5km a las 8am (hora pico) tarda más que 5km a las 11pm
-        data = {
-            'distancia': [2, 5, 10, 2, 5, 10, 5, 5],
-            'hora': [8, 8, 8, 23, 23, 23, 13, 17],
-            'tiempo': [25, 50, 90, 10, 15, 30, 25, 45] # Tiempo real observado
-        }
-        df = pd.DataFrame(data)
-        X = df[['distancia', 'hora']]
-        y = df['tiempo']
-        self.model.fit(X, y)
+    if len(df) < 10:
+        return None # Necesitamos al menos 10 puntos para empezar a aprender
 
-    def predict_arrival(self, distancia_km):
-        hora_actual = datetime.datetime.now().hour
-        # Predicción basada en el modelo entrenado
-        estimacion = self.model.predict([[distancia_km, hora_actual]])
-        return round(estimacion[0], 2)
+    # 2. FEATURE ENGINEERING (Convertimos coordenadas en datos útiles)
+    # Calculamos la hora del día (0-23) como factor de tráfico
+    df['hour'] = pd.to_datetime(df['created_at']).dt.hour
+    
+    # Calculamos el tiempo transcurrido entre puntos (en segundos)
+    df['time_diff'] = pd.to_datetime(df['created_at']).diff().dt.total_seconds().fillna(0)
+    
+    # 3. ENTRENAMIENTO
+    # X = [Hora del día], y = [Segundos por tramo]
+    # (En un sistema real usaríamos también distancia, pero esto es para probar el patrón)
+    X = df[['hour']].values
+    y = df['time_diff'].values
 
-# Instancia única para no re-entrenar en cada petición
-predictor = ETAPredictor()
+    model = LinearRegression()
+    model.fit(X, y)
+    
+    return model
+
+def predict_delay(model, current_hour):
+    if model is None: return "Datos insuficientes"
+    
+    # Predecimos cuánto suele tardar un tramo a esta hora
+    prediction = model.predict([[current_hour]])
+    return round(float(prediction[0]), 2)

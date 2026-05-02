@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import { io } from 'socket.io-client';
 
 // RECUERDA: Cambia la IP por la de tu PC (ipconfig)
-const socket = io("http://192.168.0.101:3001"); 
+const socket = io("http://192.168.0.105:3001"); 
 
 export default function Tracking() {
   const [isTracking, setIsTracking] = useState(false);

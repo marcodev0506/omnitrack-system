@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import { io } from 'socket.io-client';
 
 // CAMBIA ESTO por la IP de tu PC (Ej: 192.168.1.10)
-const SERVER_URL = "http://192.168.0.101:3001/api/login-mobile"; 
+const SERVER_URL = "http://192.168.0.105:3001/api/login-mobile"; 
 const socket = io(SERVER_URL);
 
 export default function App() {
