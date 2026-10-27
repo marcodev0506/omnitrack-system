@@ -1,0 +1,11 @@
+{
+  "server_ip": "192.168.0.110",
+  "ports": {
+    "postgres": 5433,
+    "redis": 6380,
+    "django": 8000,
+    "laravel": 8000,
+    "node": 3001,
+    "frontend": 5173
+  }
+}
