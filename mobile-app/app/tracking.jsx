@@ -5,17 +5,25 @@ import { io } from 'socket.io-client';
 import { useRouter } from 'expo-router';
 
 // RECUERDA: Cambia la IP por la de tu PC (ipconfig)
-const socket = io("http://192.168.0.103:3001");
+const SOCKET_URL = "http://192.168.0.103:3001";
 
 export default function Tracking() {
   const [isTracking, setIsTracking] = useState(false);
   const [location, setLocation] = useState(null);
   const router = useRouter();
   const [subscription, setSubscription] = useState(null);
+  const [socket, setSocket] = useState(null);
 
   // Función para iniciar tracking
   const startTracking = async () => {
     try {
+      // Reconectar socket si está desconectado
+      if (!socket || !socket.connected) {
+        console.log("🔄 Reconectando socket...");
+        const newSocket = io(SOCKET_URL);
+        setSocket(newSocket);
+      }
+
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert("Error", "Necesitamos permiso de GPS para rastrear el camión");
@@ -80,15 +88,27 @@ export default function Tracking() {
   // Función de logout
   const handleLogout = () => {
     stopTracking();
-    socket.disconnect();
+    if (socket) {
+      socket.disconnect();
+      setSocket(null);
+    }
     global.userId = null;
     router.replace('/');
   };
 
-  // Cleanup al desmontar el componente
+  // Conectar socket al montar el componente
   useEffect(() => {
+    if (!socket) {
+      const newSocket = io(SOCKET_URL);
+      setSocket(newSocket);
+      console.log("✅ Socket conectado al iniciar Tracking");
+    }
+
     return () => {
       stopTracking();
+      if (socket) {
+        socket.disconnect();
+      }
     };
   }, []);
 
