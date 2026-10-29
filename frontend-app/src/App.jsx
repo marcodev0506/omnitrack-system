@@ -32,6 +32,9 @@ function App() {
   const [analytics, setAnalytics] = useState(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const [activeDrivers, setActiveDrivers] = useState({}); // Conductores activos por ID
+  const [selectedDriverId, setSelectedDriverId] = useState(null); // Conductor seleccionado
+  const [currentSpeed, setCurrentSpeed] = useState(0); // Velocidad en tiempo real
 
   useEffect(() => {
     // 1. Cargar usuarios de la base de datos (vía Node/Laravel)
@@ -60,28 +63,77 @@ function App() {
     // 3. Escuchar movimiento en tiempo real
     socket.on('driver_position', (data) => {
         const newPos = [data.lat, data.lng];
-        setPosition(newPos);
-        setRouteHistory(prev => [...prev, newPos]);
+        const driverId = data.userId;
 
-        // Actualizar gráfica de telemetría con velocidad calculada
-        const timeLabel = new Date().toLocaleTimeString().slice(0, 5);
-        // Calcular velocidad simple basada en cambio de posición
-        const speed = data.speed || 0; // El backend debería enviar velocidad
-        setSpeedHistory(prev => [
-            ...prev.slice(-14),
-            { time: timeLabel, v: speed }
-        ]);
+        // Actualizar conductores activos
+        setActiveDrivers(prev => ({
+            ...prev,
+            [driverId]: {
+                ...prev[driverId],
+                position: newPos,
+                speed: data.speed || 0,
+                lastSeen: new Date(),
+                connected: true
+            }
+        }));
+
+        // Si no hay conductor seleccionado, seleccionar el primero activo
+        if (!selectedDriverId) {
+            setSelectedDriverId(driverId);
+        }
+
+        // Solo actualizar mapa y gráfica si es el conductor seleccionado
+        if (selectedDriverId === driverId) {
+            setPosition(newPos);
+            setRouteHistory(prev => [...prev, newPos]);
+
+            // Actualizar gráfica de telemetría con velocidad calculada
+            const timeLabel = new Date().toLocaleTimeString().slice(0, 5);
+            const speed = data.speed || 0;
+            setSpeedHistory(prev => [
+                ...prev.slice(-14),
+                { time: timeLabel, v: speed }
+            ]);
+
+            // Actualizar velocidad en tiempo real para el reporte IA
+            setCurrentSpeed(speed);
+        }
     });
 
-    return () => socket.off('driver_position');
-  }, []);
+    // Escuchar desconexión de conductores
+    socket.on('driver_disconnected', (data) => {
+        const driverId = data.userId;
+        setActiveDrivers(prev => ({
+            ...prev,
+            [driverId]: {
+                ...prev[driverId],
+                connected: false,
+                lastSeen: new Date()
+            }
+        }));
+        console.log(`❌ Conductor ${driverId} desconectado`);
+    });
+
+    return () => {
+        socket.off('driver_position');
+        socket.off('driver_disconnected');
+    };
+  }, [selectedDriverId]);
 
   // 4. Función de Inteligencia Logística (Consulta a Django AI)
   const fetchDjangoAnalytics = async () => {
+    if (!selectedDriverId) {
+      alert('Selecciona un conductor activo primero');
+      return;
+    }
+
     setLoadingAnalytics(true);
     try {
-      // ✅ Llamada al cerebro de Django en puerto 8001 (para evitar conflicto con Laravel)
-      const response = await axios.get('http://192.168.0.103:8001/api/analytics/speed/2/');
+      // Pasamos la velocidad actual del conductor seleccionado
+      const driverSpeed = activeDrivers[selectedDriverId]?.speed || 0;
+      const response = await axios.get(
+        `http://192.168.0.103:8001/api/analytics/speed/${selectedDriverId}/?current_speed=${driverSpeed}`
+      );
       setAnalytics(response.data);
       console.log("IA Django Response:", response.data);
     } catch (error) {
@@ -149,8 +201,53 @@ function App() {
 
         {/* COLUMNA DERECHA: SIDEBAR ANALÍTICO */}
         <aside style={styles.sidebar}>
-          
-          {/* Card Personal */}
+
+          {/* Card Conductores Activos */}
+          <div style={styles.card}>
+            <div style={styles.cardHeader}>
+              <Users size={20} color="#22c55e" />
+              <h2 style={styles.cardTitle}>Conductores Activos</h2>
+            </div>
+            {Object.keys(activeDrivers).length === 0 ? (
+              <p style={{ color: '#64748b', fontSize: '12px', textAlign: 'center', padding: '20px' }}>
+                Ningún conductor conectado
+              </p>
+            ) : (
+              <ul style={styles.userList}>
+                {Object.entries(activeDrivers).map(([id, driver]) => (
+                  <li
+                    key={id}
+                    onClick={() => setSelectedDriverId(parseInt(id))}
+                    style={{
+                      ...styles.userItem,
+                      backgroundColor: selectedDriverId === parseInt(id) ? '#dbeafe' : 'transparent',
+                      border: selectedDriverId === parseInt(id) ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong>Conductor {id}</strong>
+                      <span style={{
+                        fontSize: '10px',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: driver.connected ? '#22c55e' : '#ef4444',
+                        color: 'white'
+                      }}>
+                        {driver.connected ? 'En línea' : 'Desconectado'}
+                      </span>
+                    </div>
+                    <span style={styles.userEmail}>
+                      Vel: {driver.speed.toFixed(1)} km/h | 
+                      {driver.connected ? ' Activo' : ` Último: ${new Date(driver.lastSeen).toLocaleTimeString()}`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Card Personal Registrado */}
           <div style={styles.card}>
             <div style={styles.cardHeader}>
               <Users size={20} color="#64748b" />

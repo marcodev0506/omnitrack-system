@@ -67,10 +67,11 @@ io.on('connection', (socket) => {
     // Variable para guardar última posición y calcular velocidad
     let lastPosition = null;
     let lastTime = null;
+    let driverId = null;
 
     socket.on('driver_movement', async (data) => {
         const { lat, lng, driver_id } = data;
-        const userId = driver_id || 1;
+        driverId = driver_id || 1;
         const currentTime = new Date();
 
         // Calcular velocidad si tenemos posición anterior
@@ -94,7 +95,7 @@ io.on('connection', (socket) => {
 
         try {
             // A. ACTUALIZAR REDIS (Estado actual volátil)
-            await redisClient.set(`last_pos:${userId}`, JSON.stringify({
+            await redisClient.set(`last_pos:${driverId}`, JSON.stringify({
                 lat,
                 lng,
                 speed,
@@ -104,13 +105,13 @@ io.on('connection', (socket) => {
             // B. GUARDAR EN POSTGRESQL (Historial para Reportes)
             await pool.query(
                 'INSERT INTO locations (user_id, lat, lng, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW())',
-                [userId, lat, lng]
+                [driverId, lat, lng]
             );
 
             // C. RETRANSMITIR AL DASHBOARD (React) con velocidad
-            io.emit('driver_position', { lat, lng, userId, speed });
+            io.emit('driver_position', { lat, lng, userId: driverId, speed });
 
-            console.log(`📍 Usuario ${userId}: (${lat.toFixed(6)}, ${lng.toFixed(6)}) | Vel: ${speed.toFixed(1)} km/h`);
+            console.log(`📍 Usuario ${driverId}: (${lat.toFixed(6)}, ${lng.toFixed(6)}) | Vel: ${speed.toFixed(1)} km/h`);
         } catch (err) {
             console.error("❌ Error en el procesamiento de movimiento:", err.message);
         }
@@ -118,6 +119,12 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('❌ Dispositivo desconectado');
+
+        // Emitir evento específico de desconexión del conductor
+        if (driverId) {
+            io.emit('driver_disconnected', { userId: driverId });
+            console.log(`📢 Notificando desconexión del conductor ${driverId}`);
+        }
     });
 });
 

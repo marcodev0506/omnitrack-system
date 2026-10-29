@@ -20,35 +20,32 @@ def DriverAnalyticsView(request, user_id):
             cursor.execute("SELECT COUNT(*) FROM users")
             user_count = cursor.fetchone()[0]
 
-            # Últimas ubicaciones
+            # Obtener velocidad actual del parámetro (tiempo real)
+            current_speed = float(request.GET.get('current_speed', 0))
+
+            # Últimas ubicaciones (solo para verificar si hay datos)
             cursor.execute(
                 "SELECT lat, lng, created_at FROM locations WHERE user_id = %s ORDER BY created_at DESC LIMIT 2",
                 [user_id]
             )
             rows = cursor.fetchall()
 
-        # --- 2. CÁLCULO DE VELOCIDAD (Si hay datos suficientes) ---
-        if rows and len(rows) >= 2:
-            pos_recent, pos_old = rows[0], rows[1]
+        # --- 2. USAR VELOCIDAD EN TIEMPO REAL ---
+        velocidad = current_speed
 
-            dist = geodesic((pos_old[0], pos_old[1]), (pos_recent[0], pos_recent[1])).kilometers
-            diff_time = (pos_recent[2] - pos_old[2]).total_seconds() / 3600
-
-            if diff_time > 0:
-                velocidad = dist / diff_time
-
-            estado = "En movimiento" if velocidad > 5 else "Detenido"
+        if velocidad > 5:
+            estado = "En movimiento"
             alerta = "✅ En zona" if velocidad < 80 else "⚠️ Exceso de velocidad"
+        else:
+            estado = "Detenido"
+            alerta = "Vehículo detenido"
 
         # --- 3. INTELIGENCIA ARTIFICIAL (ML Engine) ---
         hora_actual = datetime.datetime.now().hour
         modelo = train_eta_model(user_id)
 
-        # Obtener última velocidad del usuario (de Redis o calcular)
-        # Para MVP, usamos la velocidad calculada arriba
-        current_speed = velocidad if velocidad > 0 else 30  # Fallback si no hay datos
-
-        prediccion_segundos = predict_delay(modelo, hora_actual, current_speed)
+        # Usar velocidad actual en tiempo real
+        prediccion_segundos = predict_delay(modelo, hora_actual, velocidad)
         patron_trafico = get_traffic_pattern(hora_actual)
 
         # Convertir segundos a formato legible
