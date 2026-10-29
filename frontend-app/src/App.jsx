@@ -26,11 +26,12 @@ const socket = io('http://192.168.0.103:3001');
 
 function App() {
   const [users, setUsers] = useState([]);
-  const [position, setPosition] = useState([10.4806, -66.9036]);
+  const [position, setPosition] = useState([10.4806, -66.9036]); // Coordenadas iniciales por defecto
   const [routeHistory, setRouteHistory] = useState([]);
-  const [speedHistory, setSpeedHistory] = useState([]); 
+  const [speedHistory, setSpeedHistory] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
     // 1. Cargar usuarios de la base de datos (vía Node/Laravel)
@@ -40,10 +41,20 @@ function App() {
         })
         .catch(err => console.error("Error cargando usuarios:", err));
 
-    // 2. Cargar historial de ruta inicial para Marco Developer (ID: 2)
+    // 2. Cargar historial de ruta inicial para el primer usuario disponible
     apiNode.get('/history/2').then(res => {
+      if (res.data && res.data.length > 0) {
         const coords = res.data.map(loc => [parseFloat(loc.lat), parseFloat(loc.lng)]);
         setRouteHistory(coords);
+        // Centrar mapa en la última posición conocida
+        const lastPos = coords[coords.length - 1];
+        setPosition(lastPos);
+        setMapReady(true);
+      }
+    }).catch(err => {
+      console.error("Error cargando historial:", err);
+      // Si falla, mantener posición por defecto
+      setMapReady(true);
     });
 
     // 3. Escuchar movimiento en tiempo real
@@ -51,13 +62,15 @@ function App() {
         const newPos = [data.lat, data.lng];
         setPosition(newPos);
         setRouteHistory(prev => [...prev, newPos]);
-        
-        // Actualizar gráfica de telemetría
+
+        // Actualizar gráfica de telemetría con velocidad calculada
         const timeLabel = new Date().toLocaleTimeString().slice(0, 5);
+        // Calcular velocidad simple basada en cambio de posición
+        const speed = data.speed || 0; // El backend debería enviar velocidad
         setSpeedHistory(prev => [
-            ...prev.slice(-14), 
-            { time: timeLabel, v: data.speed || Math.random() * 20 } 
-        ]); 
+            ...prev.slice(-14),
+            { time: timeLabel, v: speed }
+        ]);
     });
 
     return () => socket.off('driver_position');
@@ -179,6 +192,7 @@ function App() {
                   <div style={styles.mlBlock}>
                     <p style={styles.mlLabel}>Predicción de Tráfico IA</p>
                     <p style={styles.mlValue}>{analytics.ia_prediction.tiempo_estimado_tramo}</p>
+                    <p style={styles.mlConf}>Patrón: {analytics.ia_prediction.patron_trafico}</p>
                     <p style={styles.mlConf}>Confianza: {analytics.ia_prediction.confianza}</p>
                   </div>
                 )}

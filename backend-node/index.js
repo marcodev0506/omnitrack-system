@@ -64,17 +64,41 @@ connectServices();
 io.on('connection', (socket) => {
     console.log('📱 Dispositivo conectado al sistema');
 
+    // Variable para guardar última posición y calcular velocidad
+    let lastPosition = null;
+    let lastTime = null;
+
     socket.on('driver_movement', async (data) => {
         const { lat, lng, driver_id } = data;
         const userId = driver_id || 1;
+        const currentTime = new Date();
+
+        // Calcular velocidad si tenemos posición anterior
+        let speed = 0;
+        if (lastPosition && lastTime) {
+            const timeDiff = (currentTime - lastTime) / 1000; // en segundos
+            if (timeDiff > 0) {
+                // Calcular distancia entre puntos (en km)
+                const distance = calculateDistance(
+                    lastPosition.lat, lastPosition.lng,
+                    lat, lng
+                );
+                // Velocidad = distancia / tiempo (km/h)
+                speed = (distance / timeDiff) * 3600;
+            }
+        }
+
+        // Guardar posición actual
+        lastPosition = { lat, lng };
+        lastTime = currentTime;
 
         try {
             // A. ACTUALIZAR REDIS (Estado actual volátil)
-            // Esto permite que Django o React sepan dónde está el chofer sin tocar Postgres
             await redisClient.set(`last_pos:${userId}`, JSON.stringify({
                 lat,
                 lng,
-                updated_at: new Date()
+                speed,
+                updated_at: currentTime.toISOString()
             }));
 
             // B. GUARDAR EN POSTGRESQL (Historial para Reportes)
@@ -83,10 +107,10 @@ io.on('connection', (socket) => {
                 [userId, lat, lng]
             );
 
-            // C. RETRANSMITIR AL DASHBOARD (React)
-            io.emit('driver_position', { lat, lng, userId });
+            // C. RETRANSMITIR AL DASHBOARD (React) con velocidad
+            io.emit('driver_position', { lat, lng, userId, speed });
 
-            console.log(`📍 Usuario ${userId}: Posición (${lat.toFixed(6)}, ${lng.toFixed(6)}) guardada en Redis+DB`);
+            console.log(`📍 Usuario ${userId}: (${lat.toFixed(6)}, ${lng.toFixed(6)}) | Vel: ${speed.toFixed(1)} km/h`);
         } catch (err) {
             console.error("❌ Error en el procesamiento de movimiento:", err.message);
         }
@@ -96,6 +120,18 @@ io.on('connection', (socket) => {
         console.log('❌ Dispositivo desconectado');
     });
 });
+
+// Función auxiliar para calcular distancia (fórmula Haversine simplificada)
+function calculateDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371; // Radio de la Tierra en km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}
 
 // 6. RUTAS DE LA API
 
