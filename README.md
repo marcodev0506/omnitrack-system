@@ -4,6 +4,8 @@ Sistema de rastreo en tiempo real con múltiples backends, frontend web y aplica
 
 📖 **Guía completa de pruebas:** Ver [GUIA_PRUEBAS.md](./GUIA_PRUEBAS.md) para instrucciones detalladas de cómo probar cada servicio.
 
+🎭 **Guion de demostración:** Ver [GUIA_DEMO.md](./GUIA_DEMO.md) para un guion completo de ventas/explicación del sistema.
+
 ## Arquitectura del Sistema
 
 ### Servicios

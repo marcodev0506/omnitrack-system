@@ -11,7 +11,7 @@ Esta guía explica qué hace cada servicio y cómo probarlo paso a paso.
 ### Servicios Backend
 - **Backend Node.js** (puerto 3001): Servidor WebSockets - cerebro del tiempo real
 - **Backend Django** (puerto 8000): API REST Python - motor de IA y analytics
-- **Backend Laravel** (puerto 8000): API REST PHP - autenticación y gestión de usuarios
+- **Backend Laravel** (puerto 8001): API REST PHP - autenticación y gestión de usuarios
 
 ### Frontends
 - **Frontend React** (puerto 5173): Dashboard web para monitoreo

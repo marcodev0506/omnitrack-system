@@ -44,6 +44,16 @@ async function connectServices() {
     try {
         await redisClient.connect();
         console.log("🚀 Redis conectado en puerto 6380");
+
+        // Limpiar datos antiguos de Redis al iniciar
+        const keys = await redisClient.keys('last_pos:*');
+        if (keys.length > 0) {
+            await redisClient.del(keys);
+            console.log(`🧹 Limpiados ${keys.length} registros antiguos de Redis al iniciar`);
+        } else {
+            console.log('✅ Redis está limpio, no hay datos de posiciones');
+        }
+        
     } catch (err) {
         console.error("No se pudo conectar a Redis", err);
     }
@@ -56,14 +66,14 @@ io.on('connection', (socket) => {
 
     socket.on('driver_movement', async (data) => {
         const { lat, lng, driver_id } = data;
-        const userId = driver_id || 1; 
+        const userId = driver_id || 1;
 
         try {
             // A. ACTUALIZAR REDIS (Estado actual volátil)
             // Esto permite que Django o React sepan dónde está el chofer sin tocar Postgres
             await redisClient.set(`last_pos:${userId}`, JSON.stringify({
-                lat, 
-                lng, 
+                lat,
+                lng,
                 updated_at: new Date()
             }));
 
@@ -76,7 +86,7 @@ io.on('connection', (socket) => {
             // C. RETRANSMITIR AL DASHBOARD (React)
             io.emit('driver_position', { lat, lng, userId });
 
-            console.log(`📍 Posición procesada (Redis+DB) para usuario ${userId}: ${lat}, ${lng}`);
+            console.log(`📍 Usuario ${userId}: Posición (${lat.toFixed(6)}, ${lng.toFixed(6)}) guardada en Redis+DB`);
         } catch (err) {
             console.error("❌ Error en el procesamiento de movimiento:", err.message);
         }
@@ -121,32 +131,11 @@ app.get('/history/:userId', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-// Este proceso corre "en la sombra" cada 30 segundos
-setInterval(async () => {
-    console.log("🔄 Iniciando volcado masivo de Redis a PostgreSQL...");
-    
-    try {
-        // 1. Buscamos todas las llaves de posiciones en Redis
-        const keys = await redisClient.keys('last_pos:*');
-        
-        if (keys.length === 0) return;
-
-        for (const key of keys) {
-            const data = JSON.parse(await redisClient.get(key));
-            const userId = key.split(':')[1];
-
-            // 2. Guardamos solo si es necesario o en lote
-            // Aquí podrías implementar una lógica que solo guarde si la distancia cambió
-            await pool.query(
-                'INSERT INTO locations (user_id, lat, lng, created_at) VALUES ($1, $2, $3, NOW())',
-                [userId, data.lat, data.lng]
-            );
-        }
-        console.log(`✅ Sincronizados ${keys.length} conductores.`);
-    } catch (err) {
-        console.error("❌ Error en el volcado masivo:", err);
-    }
-}, 30000); // 30 segundos
+// NOTA: El script de sincronización se eliminó porque:
+// - WebSockets ya guardan todas las ubicaciones en tiempo real en PostgreSQL
+// - Redis solo mantiene la última posición como caché rápida
+// - No es necesario un script de intervalo para volcar datos
+// - Este diseño usa WebSockets para true real-time, no polling/volcado
 
 // 7. ARRANQUE DEL SERVIDOR
 server.listen(port, () => {

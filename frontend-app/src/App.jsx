@@ -22,7 +22,7 @@ let DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 // --- CONEXIÓN SOCKET.IO (IP ACTUALIZADA .101) ---
-const socket = io('http://192.168.0.109:3001');
+const socket = io('http://192.168.0.103:3001');
 
 function App() {
   const [users, setUsers] = useState([]);
@@ -68,12 +68,12 @@ function App() {
     setLoadingAnalytics(true);
     try {
       // ✅ Llamada al cerebro de Django en puerto 8001 (para evitar conflicto con Laravel)
-      const response = await axios.get('http://192.168.0.109:8001/api/analytics/speed/2/');
+      const response = await axios.get('http://192.168.0.103:8001/api/analytics/speed/2/');
       setAnalytics(response.data);
       console.log("IA Django Response:", response.data);
     } catch (error) {
       console.error("Error consultando Django IA:", error);
-      alert("No se pudo conectar con el motor de IA en 192.168.0.109:8001");
+      alert("No se pudo conectar con el motor de IA en 192.168.0.103:8001");
     } finally {
       setLoadingAnalytics(false);
     }
