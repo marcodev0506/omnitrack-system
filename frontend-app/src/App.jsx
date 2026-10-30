@@ -35,6 +35,8 @@ function App() {
   const [activeDrivers, setActiveDrivers] = useState({}); // Conductores activos por ID
   const [selectedDriverId, setSelectedDriverId] = useState(null); // Conductor seleccionado
   const [currentSpeed, setCurrentSpeed] = useState(0); // Velocidad en tiempo real
+  const [driverHistory, setDriverHistory] = useState({}); // Historial por conductor { driverId: { routeHistory, speedHistory } }
+  const [driverAnalytics, setDriverAnalytics] = useState({}); // Reporte IA por conductor { driverId: analyticsData }
 
   useEffect(() => {
     // 1. Cargar usuarios de la base de datos (vía Node/Laravel)
@@ -82,6 +84,21 @@ function App() {
             setSelectedDriverId(driverId);
         }
 
+        // Guardar historial por conductor
+        setDriverHistory(prev => {
+            const driverData = prev[driverId] || { routeHistory: [], speedHistory: [] };
+            const timeLabel = new Date().toLocaleTimeString().slice(0, 5);
+            const speed = data.speed || 0;
+
+            return {
+                ...prev,
+                [driverId]: {
+                    routeHistory: [...driverData.routeHistory, newPos],
+                    speedHistory: [...driverData.speedHistory.slice(-14), { time: timeLabel, v: speed }]
+                }
+            };
+        });
+
         // Solo actualizar mapa y gráfica si es el conductor seleccionado
         if (selectedDriverId === driverId) {
             setPosition(newPos);
@@ -120,6 +137,24 @@ function App() {
     };
   }, [selectedDriverId]);
 
+  // Cargar historial y reporte IA del conductor seleccionado
+  useEffect(() => {
+    if (selectedDriverId && driverHistory[selectedDriverId]) {
+      const driverData = driverHistory[selectedDriverId];
+      setRouteHistory(driverData.routeHistory);
+      setSpeedHistory(driverData.speedHistory);
+      setPosition(driverData.routeHistory[driverData.routeHistory.length - 1] || [10.4806, -66.9036]);
+      setCurrentSpeed(driverData.speedHistory[driverData.speedHistory.length - 1]?.v || 0);
+      
+      // Cargar reporte IA del conductor seleccionado (si existe)
+      if (driverAnalytics[selectedDriverId]) {
+        setAnalytics(driverAnalytics[selectedDriverId]);
+      } else {
+        setAnalytics(null);
+      }
+    }
+  }, [selectedDriverId, driverHistory, driverAnalytics]);
+
   // 4. Función de Inteligencia Logística (Consulta a Django AI)
   const fetchDjangoAnalytics = async () => {
     if (!selectedDriverId) {
@@ -134,6 +169,14 @@ function App() {
       const response = await axios.get(
         `http://192.168.0.103:8001/api/analytics/speed/${selectedDriverId}/?current_speed=${driverSpeed}`
       );
+      
+      // Guardar reporte para este conductor específico
+      setDriverAnalytics(prev => ({
+        ...prev,
+        [selectedDriverId]: response.data
+      }));
+      
+      // Mostrar el reporte actual
       setAnalytics(response.data);
       console.log("IA Django Response:", response.data);
     } catch (error) {
@@ -166,7 +209,7 @@ function App() {
           <div style={styles.card}>
             <div style={styles.cardHeader}>
               <MapPin size={20} color="#ef4444" />
-              <h2 style={styles.cardTitle}>Rastreo en Vivo (Caracas)</h2>
+              <h2 style={styles.cardTitle}>Rastreo en Vivo</h2>
             </div>
             <div style={styles.mapWrapper}>
               <MapContainer center={position} zoom={15} style={{ height: '100%', width: '100%' }}>
