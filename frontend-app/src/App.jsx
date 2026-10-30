@@ -129,6 +129,11 @@ function App() {
             }
         }));
         console.log(`❌ Conductor ${driverId} desconectado`);
+
+        // Si es el conductor seleccionado, actualizar estado inmediatamente
+        if (selectedDriverId === driverId) {
+            setCurrentSpeed(0);
+        }
     });
 
     return () => {
@@ -146,14 +151,31 @@ function App() {
       setPosition(driverData.routeHistory[driverData.routeHistory.length - 1] || [10.4806, -66.9036]);
       setCurrentSpeed(driverData.speedHistory[driverData.speedHistory.length - 1]?.v || 0);
       
-      // Cargar reporte IA del conductor seleccionado (si existe)
-      if (driverAnalytics[selectedDriverId]) {
+      // Verificar si el conductor está desconectado
+      const isDisconnected = activeDrivers[selectedDriverId]?.connected === false;
+      
+      if (isDisconnected) {
+        // Mostrar estado desconectado en reporte IA
+        setAnalytics({
+          driver_id: selectedDriverId,
+          speed_kph: 0,
+          status: "Desconectado",
+          ia_prediction: {
+            tiempo_estimado_tramo: "N/A",
+            patron_trafico: "Conductor desconectado",
+            confianza: "N/A"
+          },
+          geo_alert: "Sin conexión",
+          recomendacion: "El conductor está fuera de línea. Espere reconexión."
+        });
+      } else if (driverAnalytics[selectedDriverId]) {
+        // Cargar reporte IA del conductor si está conectado
         setAnalytics(driverAnalytics[selectedDriverId]);
       } else {
         setAnalytics(null);
       }
     }
-  }, [selectedDriverId, driverHistory, driverAnalytics]);
+  }, [selectedDriverId, driverHistory, driverAnalytics, activeDrivers]);
 
   // 4. Función de Inteligencia Logística (Consulta a Django AI)
   const fetchDjangoAnalytics = async () => {
